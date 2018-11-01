@@ -1,0 +1,54 @@
+---
+title: "2018_midterm_Stroud"
+author: "Hannah Stroud"
+date: "October 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Sampling your system (10 points)
+####Each of you has a study system your work in and a question of interest. Give an example of one variable that you would sample in order to get a sense of its variation in nature. Describe, in detail, how you would sample for the population of that variable in order to understand its distribution. Questions to consider include, but are not limited to: Just what is your sample versus your population? What would your sampling design be? Why would you design it that particular way? What are potential confounding influences of both sampling technique and sample design that you need to be careful to avoid? What statistical distribution might the variable take, and why?
+
+I don't deal with natural system and I'm not sure how to apply this question to what I study. See extra credit in attempt to make up missed points.  
+
+## 2. Let’s get philosophical. (10 points)
+####Are you a frequentist, likelihoodist, or Bayesian? Why? Include in your answer why you prefer the inferential tools (e.g. confidence intervals, test statistics, posterior probabilities, etc.) of your chosen worldview and why you do not like the ones of the other one. This includes defining just what those different tools mean! extra credit for citing and discussing outside sources - one point per source/point
+
+I am a Bayesian, mostly because I think there is a communication issue with frequentist statistics to those who don't deal with them and I feel like while they can be used for good, the p-value has been used without much thought at times, only relying on the 0.05 rule. I have found the idea "We teach it because it’s what we do; we do it because it’s what we teach" to be too often true(Cobb qtd. in Wasserstein & Lazar 2016). I like that Bayesian inference "provides an explicit expression of the amount of uncertainty" in estimates, which is a lot more useful than saying you rejected the null or not (Ellison 1996). As Ellison also points out, frequentist assumptions rely on true random sampling and a true fixed value for each parameter of interest- and neither of those seem to fit well for me (1996). I do find times where p-values, t-tests and other frequentist statistics are useful, but I feel like overall they aren't used in the most useful way as the ASA guidelines from 2016 recommend. 
+
+I'm a Bayesian because I really like the idea and simplicity of priors and posteriors. The core of Bayesian, is a beautiful statistical circle of life: "we aqquire data..update the posterior distribution...This updated distribution then serves as the prior" for future models.  (Seeing Theory: https://seeing-theory.brown.edu/bayesian-inference/index.html#section1). Priors are really useful to me- they allow us to utilize the knowledge we already have about what we are studying and improve upon it. 
+## 3. Power (20 points)
+#### We have a lot of aspects of the sample of data that we collect which can alter the power of our linear regressions.
+
+####Slope
+####Intercept
+####Residual variance
+####Sample Size
+####Range of X values
+#### Choose three of the above properties and demonstrate how they alter power of an F-test from a linear regression using at least three different alpha levels (more if you want!) As a baseline of the parameters, let’s use the information from the seal data:
+
+slope = 0.00237, intercept=115.767, sigma = 5.6805, range of seal ages = 958 to 8353, or, if you prefer, seal ages ∼ N(3730.246, 1293.485). Your call what distribution to use for seal age simulation.
+
+Extra credit 1 - test whether the distribution of ages alters power: 3 points
+
+Extra Credit 2 Choose just one of the above elements to vary. Using likelihood to fit models, repeat your power analysis for a chi-square likelihood ratio test. You can use glm(), bbmle or some other means of fitting and obtaining a LRT at your discretion. 5 points.  
+
+```{r}
+#read in data set 
+library(readr)
+library(dplyr)
+seals <- read_csv("./Data/17e8ShrinkingSeals Trites 1996.csv")
+seals_lm <- lm(seals$length.cm~seals$age.days)
+
+#simulation for seal age 
+s_age_sim <- rnorm(100, mean= 3730.246, sd= 1293.485)
+
+#varying intercept and slope (the coefficients)
+library(mnormt)
+coef_sims <- rmnorm(100, mean = coef(seals_lm), varcov = vcov(seals_lm)) %>%
+  as.data.frame
+
+```
