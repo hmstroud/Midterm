@@ -17,7 +17,7 @@ I don't deal with natural system and I'm not sure how to apply this question to 
 ## 2. Let’s get philosophical. (10 points)
 ####Are you a frequentist, likelihoodist, or Bayesian? Why? Include in your answer why you prefer the inferential tools (e.g. confidence intervals, test statistics, posterior probabilities, etc.) of your chosen worldview and why you do not like the ones of the other one. This includes defining just what those different tools mean! extra credit for citing and discussing outside sources - one point per source/point
 
-I am a Bayesian, mostly because I think there is a communication issue with frequentist statistics to those who don't deal with them and I feel like while they can be used for good, the p-value has been used without much thought at times, only relying on the 0.05 rule. I have found the idea "We teach it because it’s what we do; we do it because it’s what we teach" to be too often true(Cobb qtd. in Wasserstein & Lazar 2016). I like that Bayesian inference "provides an explicit expression of the amount of uncertainty" in estimates, which is a lot more useful than saying you rejected the null or not (Ellison 1996). As Ellison also points out, frequentist assumptions rely on true random sampling and a true fixed value for each parameter of interest- and neither of those seem to fit well for me (1996). I do find times where p-values, t-tests and other frequentist statistics are useful, but I feel like overall they aren't used in the most useful way as the ASA guidelines from 2016 recommend. 
+I am a Bayesia. I think there is a communication issue with frequentist statistics to those who don't deal with them and I feel like while they can be used for good, the p-value has been used without much thought at times, only relying on the 0.05 rule. I have found the idea "We teach it because it’s what we do; we do it because it’s what we teach" to be too often true(Cobb qtd. in Wasserstein & Lazar 2016). I like that Bayesian inference "provides an explicit expression of the amount of uncertainty" in estimates, which is a lot more useful than saying you rejected the null or not (Ellison 1996). It's also  As Ellison also points out, frequentist assumptions rely on true random sampling and a true fixed value for each parameter of interest- and neither of those seem to fit well for me (1996). I do find times where p-values, t-tests and other frequentist statistics are useful, but I feel like overall they aren't used in the most useful way as the ASA guidelines from 2016 recommend. 
 
 I'm a Bayesian because I really like the idea and simplicity of priors and posteriors. The core of Bayesian, is a beautiful statistical circle of life: "we aqquire data..update the posterior distribution...This updated distribution then serves as the prior" for future models.  (Seeing Theory: https://seeing-theory.brown.edu/bayesian-inference/index.html#section1). Priors are really useful to me- they allow us to utilize the knowledge we already have about what we are studying and improve upon it. 
 ## 3. Power (20 points)
@@ -41,10 +41,15 @@ Extra Credit 2 Choose just one of the above elements to vary. Using likelihood t
 library(readr)
 library(dplyr)
 seals <- read_csv("./Data/17e8ShrinkingSeals Trites 1996.csv")
-seals_lm <- lm(seals$length.cm~seals$age.days)
+
 
 #simulation for seal age 
-s_age_sim <- rnorm(100, mean= 3730.246, sd= 1293.485)
+#what a data frame with varing sample sizes, and coefficients (us crossing coef_sims?)
+sim_data_age <- function(m= 3730.246, sd= 1293.485, n1, n2){
+  #data generating process 
+rnorm(n, mean= m, sd= sd)  
+}
+  
 
 #varying intercept and slope (the coefficients)
 library(mnormt)
@@ -52,3 +57,104 @@ coef_sims <- rmnorm(100, mean = coef(seals_lm), varcov = vcov(seals_lm)) %>%
   as.data.frame
 
 ```
+
+## 4. I’ve referenced the following figure a few times. I’d like you to demonstrate your understanding of Bayes Theorem by hand showing what the probability of the sun exploding is given the data. Assume that your prior probability that the sun explodes is p(Sun Explodes) = 0.0001. The rest of the information you need is in the cartoon!
+
+```{r}
+P_exp <- 0.0001  #prior_exp
+P_not <- 1- P_exp   #prior_not
+P_radio_lies <- 1/36
+P_radio_truth <- 1-P_radio_lies
+
+#Prob of explostion
+#need to know marginal 
+
+```
+##5 Quailing at the Prospect of Linear Models
+I’d like us to walk through the three different ‘engines’ that we have learned about to fit linear models. To motivate this, we’ll look at Burness et al.’s 2012 study "Post-hatch heat warms adult beaks: irreversible physiological plasticity in Japanese quail 
+
+```{r}
+library(readr)
+
+morph <- read.csv("./Data/Morphology data.csv")
+morph <- morph[-c(2:5, 8:10)] %>% na.omit()
+```
+
+###5.1 Three fits (10 points)
+To begin with, I’d like you to fit the relationship that describes how Tarsus (leg) length predicts upper beak (Culmen) length. Fit this relationship using least squares, likelihood, and Bayesian techniques. For each fit, demonstrate that the necessary assumptions have been met. Note, functions used to fit with likelihood and Bayes may or may not behave well when fed NAs. So look out for those errors.
+```{r}
+#fit with least squares
+morph_mod <- lm(morph$Culmen..mm.~ morph$Tarsus..mm.)
+#check assumptions 
+plot(morph_mod, which=1)   
+plot(morph_mod, which=2) #qq-plot looks a little weird on ends 
+#tests
+anova(morph_mod)
+summary(morph_mod)
+#log transform 
+morph_mod_log <- lm(log(Culmen..mm.)~ Tarsus..mm., data= morph)
+#check assumptions again 
+plot(morph_mod_log, which=1)
+plot(morph_mod_log, which=2) #looks a little better 
+#tests
+summary(morph_mod_log)  #t-test
+anova(morph_mod_log)  #F test
+```
+
+```{r}
+#fit with likelihood
+lik_fun <- function(slope, intercept, resid_sd){
+  #data generating process
+ fit <- intercept + slope * morph$`Tarsus (mm)`
+  
+  #likelihood
+  sum(dnorm(morph$Culmen..mm., fit, resid_sd, log=TRUE))
+}
+
+library(dplyr)
+library(tidyr)
+grid_samp <- crossing(intercept = seq(-0.1,0.1, 0.01),
+                      slope = seq(0.1, 0.5, 0.01),
+                      resid_sd = seq(1.0,2.0, .05)) %>%
+  rowwise() %>%
+  mutate(logLik = lik_fun(slope, intercept, resid_sd)) %>%
+  ungroup()
+
+#the ML estimates are
+grid_samp %>% filter(logLik == max(logLik))
+#whelp this isn't fucking working 
+```
+
+```{r}
+#Bayesian 
+library(brms)
+library(tidybayes)
+library(bayesplot)
+
+morph_lm_bay <- brm(Culmen..mm.~Tarsus..mm.,
+                      family = gaussian(link = "identity"),
+                      data= morph,
+                    file= "./morph_lm_bay")
+#test assumptions 
+morph_posterior <- posterior_samples(morph_lm_bay, 
+                                    add_chain = T)
+rhat(morph_lm_bay) #yes! close to 1
+```
+
+5.2 Three interpretations (10 points)
+OK, now that we have fits, take a look! Do the coefficients and their associated measures of error in their estimation match? How would we interpret the results from these different analyses differently? Or would we? Note, confint works on lm objects as well.
+
+5.3 Everyday I’m Profilin’ (10 points)
+For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
+
+5.4 The Power of the Prior (10 points)
+This data set is pretty big. After excluding NAs in the variables we’re interested in, it’s over 766 lines of data! Now, a lot of data can overhwelm a strong prior. But only to a point. Show first that there is enough data here that a prior for the slope with an estimate of 0.4 and a sd of 0.01 is overwhelmed by the data by demonstrating that it produces similar results to our already fit flat prior. Second, see if a very small sample size (n = 10) would at least include 0.4 in it’s 95% Credible Interval. Last, demonstrate at what sample size that 95% CL first begins to include 0.4 when we have a strong prior. How much data do we really need to overcome our prior belief? Note, it takes a long time to fit these models, so, try a strategy of spacing out the 3-4 sample sizes, and then zoom in on an interesting region.
+
+6. Extra Credit
+Make an election forecast as discussed at https://biol607.github.io/extra.html - but this isn’t just a winner prediction. 1 point for the correct winner. 5 points for correctly predicting the popular vote and being within 10% (3% just for trying!). 5 points for predicting the electoral college and geting no more than 5 states wrong (3 points just for trying). 5 points for predicting the senate races getting no more than 5 states wrong (3 points just for trying). 1 extra point for each vote percentage within your 80% Confidence/Credible Interval. Ditto for the house races.
+
+If you want to do something else crazy with the election data, contact me, and we’ll discuss how many extra points it would be worth (typically 3-5).
+
+Theoretically, you could almost pass this exam just by good forecasts.
+
+
