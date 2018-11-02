@@ -61,15 +61,25 @@ coef_sims <- rmnorm(100, mean = coef(seals_lm), varcov = vcov(seals_lm)) %>%
 ## 4. I’ve referenced the following figure a few times. I’d like you to demonstrate your understanding of Bayes Theorem by hand showing what the probability of the sun exploding is given the data. Assume that your prior probability that the sun explodes is p(Sun Explodes) = 0.0001. The rest of the information you need is in the cartoon!
 
 ```{r}
-P_exp <- 0.0001  #prior_exp
-P_not <- 1- P_exp   #prior_not
-P_radio_lies <- 1/36
-P_radio_truth <- 1-P_radio_lies
+P_E <- 0.0001  #data points
+P_N <- 1- P_exp 
+P_F <- 1/36   #prior
+P_T <- 1-P_F  
 
-#Prob of explostion
-#need to know marginal 
+#Prob of explostion give true= P(T | E)* (P(E))/ P(T)
+#Prob of it being true P(T)= P(T|E) P(E) + P(T|N) * P(N)
 
+
+
+#P(sun explodes | yes) <- P(yes|explodes)*p(Explodes)/Prob(Yes)
+#Prob(Yes)= P(Says Ex | explodes)*P(E) + P(Says ex|doesnt)* P(N)
+
+P_yes <- (35/36)*0.0001+((1/36)*0.9999)
+
+P_exp_given_data <- ((35/36)*0.0001)/P_yes
 ```
+The probability the sun explodes given the data is 0.0035.  
+
 ##5 Quailing at the Prospect of Linear Models
 I’d like us to walk through the three different ‘engines’ that we have learned about to fit linear models. To motivate this, we’ll look at Burness et al.’s 2012 study "Post-hatch heat warms adult beaks: irreversible physiological plasticity in Japanese quail 
 
