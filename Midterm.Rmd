@@ -139,22 +139,60 @@ morph_lm_bay <- brm(Culmen..mm.~Tarsus..mm.,
 morph_posterior <- posterior_samples(morph_lm_bay, 
                                     add_chain = T)
 rhat(morph_lm_bay) #yes! close to 1
+mcmc_acf(morph_posterior) #also looks good 
+morph_fit <- fitted(morph_lm_bay) %>% as.data.frame() 
+morph_res <- residuals(morph_lm_bay) %>% as.data.frame()
+
+qqnorm(morph_res$Estimate) #looks good 
 ```
 
 5.2 Three interpretations (10 points)
 OK, now that we have fits, take a look! Do the coefficients and their associated measures of error in their estimation match? How would we interpret the results from these different analyses differently? Or would we? Note, confint works on lm objects as well.
+```{r}
+library(tidyverse)
+#least squares linear regression
+summary(morph_mod)%>% broom::tidy()
+confint(morph_mod)
 
-5.3 Everyday I’m Profilin’ (10 points)
-For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
+#likelihood
 
-5.4 The Power of the Prior (10 points)
-This data set is pretty big. After excluding NAs in the variables we’re interested in, it’s over 766 lines of data! Now, a lot of data can overhwelm a strong prior. But only to a point. Show first that there is enough data here that a prior for the slope with an estimate of 0.4 and a sd of 0.01 is overwhelmed by the data by demonstrating that it produces similar results to our already fit flat prior. Second, see if a very small sample size (n = 10) would at least include 0.4 in it’s 95% Credible Interval. Last, demonstrate at what sample size that 95% CL first begins to include 0.4 when we have a strong prior. How much data do we really need to overcome our prior belief? Note, it takes a long time to fit these models, so, try a strategy of spacing out the 3-4 sample sizes, and then zoom in on an interesting region.
+#Baysian 
+summary(morph_lm_bay, digits = 4) #so far so good
+```
 
-6. Extra Credit
-Make an election forecast as discussed at https://biol607.github.io/extra.html - but this isn’t just a winner prediction. 1 point for the correct winner. 5 points for correctly predicting the popular vote and being within 10% (3% just for trying!). 5 points for predicting the electoral college and geting no more than 5 states wrong (3 points just for trying). 5 points for predicting the senate races getting no more than 5 states wrong (3 points just for trying). 1 extra point for each vote percentage within your 80% Confidence/Credible Interval. Ditto for the house races.
+We would interpret Bayesian that it is very likely that Tarsus length affects culmen size. 
+We would interpret the least squares as it was very plausible that we can reject the null and we find that it is plausible that the variation is due to correlation and not noise.   
+###5.3 Everyday I’m Profilin’ (10 points)For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
 
-If you want to do something else crazy with the election data, contact me, and we’ll discuss how many extra points it would be worth (typically 3-5).
 
-Theoretically, you could almost pass this exam just by good forecasts.
+
+###5.4 The Power of the Prior (10 points)
+####This data set is pretty big. After excluding NAs in the variables we’re interested in, it’s over 766 lines of data! Now, a lot of data can overhwelm a strong prior. But only to a point. Show first that there is enough data here that a prior for the slope with an estimate of 0.4 and a sd of 0.01 is overwhelmed by the data by demonstrating that it produces similar results to our already fit flat prior.
+```{r}
+prior_bayes <- function(y, lambda_est, 
+                       min_prior=2, max_prior= 20) {
+  #DataGenProcess
+  lambda <- lambda_est
+  
+  #prior typically a probability distribution, flat usually assigns equal prob 
+  #pois has a lower bound- can't be below 0)
+  prior <- dunif(lambda_est,min_prior, max_prior)  #dunif takes min and max 
+                          #set max to be weakly informed prior based on data
+                          #based on what we know about poisson and our data
+
+  #likelihood 
+  lik <- dpois(y, lambda)
+
+  #
+  return(prod(lik)*prior)
+  }
+```
+
+####Second, see if a very small sample size (n = 10) would at least include 0.4 in it’s 95% Credible Interval. 
+
+####Last, demonstrate at what sample size that 95% CL first begins to include 0.4 when we have a strong prior. How much data do we really need to overcome our prior belief? Note, it takes a long time to fit these models, so, try a strategy of spacing out the 3-4 sample sizes, and then zoom in on an interesting region.
+
+###6. Extra CreditMake an election forecast as discussed at https://biol607.github.io/extra.html - but this isn’t just a winner prediction. 1 point for the correct winner. 5 points for correctly predicting the popular vote and being within 10% (3% just for trying!). 5 points for predicting the electoral college and geting no more than 5 states wrong (3 points just for trying). 5 points for predicting the senate races getting no more than 5 states wrong (3 points just for trying). 1 extra point for each vote percentage within your 80% Confidence/Credible Interval. Ditto for the house races.
+
 
 
