@@ -9,6 +9,15 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+###Load the libraries###
+library(readr)
+library(dplyr)
+library(MASS)
+library(tidyr)
+library(ggplot2)
+library(profileModel)
+```
 ## 1. Sampling your system (10 points)
 ####Each of you has a study system your work in and a question of interest. Give an example of one variable that you would sample in order to get a sense of its variation in nature. Describe, in detail, how you would sample for the population of that variable in order to understand its distribution. Questions to consider include, but are not limited to: Just what is your sample versus your population? What would your sampling design be? Why would you design it that particular way? What are potential confounding influences of both sampling technique and sample design that you need to be careful to avoid? What statistical distribution might the variable take, and why?
 
@@ -121,9 +130,9 @@ Change in intercept did not have a significant effect on power, increasing resid
 
 ## 4. I’ve referenced the following figure a few times. I’d like you to demonstrate your understanding of Bayes Theorem by hand showing what the probability of the sun exploding is given the data. Assume that your prior probability that the sun explodes is p(Sun Explodes) = 0.0001. The rest of the information you need is in the cartoon!
 
-```{r}
+```{r Bayesian Theory}
 P_E <- 0.0001  #data points
-P_N <- 1- P_exp #probabilit it doesn't explode
+P_N <- 1- P_E #probabilit it doesn't explode
 P_F <- 1/36    #probabiliy it lies, also prob the it lies given sun explodes
 P_T <- 1-P_F  #probabiliy it tells the truth, prob it tells truth given sun explodes
 
@@ -145,11 +154,11 @@ The probability the sun explodes given the data is 0.0035.
 ##5 Quailing at the Prospect of Linear Models
 I’d like us to walk through the three different ‘engines’ that we have learned about to fit linear models. To motivate this, we’ll look at Burness et al.’s 2012 study "Post-hatch heat warms adult beaks: irreversible physiological plasticity in Japanese quail 
 
-```{r}
+```{r cache=TRUE, warning=FALSE, message=FALSE}
 library(readr)
-
+library(profileModel)
 morph <- read.csv("./Data/Morphology data.csv")
-morph <- morph[-c(2:5, 8:10)] %>% na.omit()
+morph <- morph[-c(2:5, 8:10)] %>% na.omit()    #getting rid of NAs
 ```
 
 ###5.1 Three fits (10 points)
@@ -161,50 +170,29 @@ morph_mod <- lm(morph$Culmen..mm.~ morph$Tarsus..mm.)
 plot(morph_mod, which=1)   
 plot(morph_mod, which=2) #qq-plot looks a little weird on ends 
 #tests
-anova(morph_mod)
-summary(morph_mod)
-#log transform 
-morph_mod_log <- lm(log(Culmen..mm.)~ Tarsus..mm., data= morph)
-#check assumptions again 
-plot(morph_mod_log, which=1)
-plot(morph_mod_log, which=2) #looks a little better 
-#tests
-summary(morph_mod_log)  #t-test
-anova(morph_mod_log)  #F test
+anova(morph_mod) #t-test
+summary(morph_mod) #High F value, looks good 
 ```
 
-```{r}
+```{r Likelihood}
 #fit with likelihood
+library(bbmle)
 lik_fun <- function(slope, intercept, resid_sd){
   #data generating process
- fit <- intercept + slope * morph$`Tarsus (mm)`
+ cul_fit <- intercept + slope * morph$Tarsus..mm.
   
   #likelihood
-  sum(dnorm(morph$Culmen..mm., fit, resid_sd, log=TRUE))
+  sum(dnorm(morph$Culmen..mm., cul_fit, resid_sd, log=TRUE))
 }
 
-grid_samp <- crossing(intercept = seq(-0.15, 0.05, .01),
+gs_loglik <- crossing(intercept = seq(-0.15, 0.05, .01),
                       slope = seq(0.25,0.45,.01),
                       resid_sd = seq(1.0, 3.0, .01)) %>%
   rowwise() %>%
   mutate(logLik = lik_fun(slope, intercept, resid_sd)) %>%
   ungroup()
 
-#the ML estimates are
-grid_samp %>% filter(logLik == max(logLik))
 
-library(dplyr)
-library(tidyr)
-grid_samp <- crossing(intercept = seq(-0.1,0.1, 0.01),
-                      slope = seq(0.1, 0.5, 0.01),
-                      resid_sd = seq(1.0,2.0, .05)) %>%
-  rowwise() %>%
-  mutate(logLik = lik_fun(slope, intercept, resid_sd)) %>%
-  ungroup()
-
-#the ML estimates are
-grid_samp %>% filter(logLik == max(logLik))
-#whelp this isn't fucking working 
 ```
 
 ```{r}
@@ -213,19 +201,20 @@ library(brms)
 library(tidybayes)
 library(bayesplot)
 
-morph_lm_bay <- brm(Culmen..mm.~Tarsus..mm.,
+morph_bay_mod <- brm(Culmen..mm.~Tarsus..mm.,
                       family = gaussian(link = "identity"),
                       data= morph,
-                    file= "./morph_lm_bay")
+                    file= "./morph_bay_mod")
 #test assumptions 
-morph_posterior <- posterior_samples(morph_lm_bay, 
+morph_posterior <- posterior_samples(morph_bay_mod, 
                                     add_chain = T)
-rhat(morph_lm_bay) #yes! close to 1
-mcmc_acf(morph_posterior) #also looks good 
-morph_fit <- fitted(morph_lm_bay) %>% as.data.frame() 
-morph_res <- residuals(morph_lm_bay) %>% as.data.frame()
+rhat(morph_bay_mod)#yes! close to 1
+mcmc_acf(morph_posterior) #also looks good, convergering  
+morph_fit <- fitted(morph_bay_mod) %>% as.data.frame() 
+morph_res <- residuals(morph_bay_mod) %>% as.data.frame()
 
 qqnorm(morph_res$Estimate) #looks good 
+pp_check(morph_bay_mod, type= "scatter") #no pathological diversions
 ```
 
 5.2 Three interpretations (10 points)
@@ -237,15 +226,25 @@ summary(morph_mod)%>% broom::tidy()
 confint(morph_mod)
 
 #likelihood
+#filter to find max log likelihood
+gs_loglik %>% filter(logLik == max(logLik))
 
 #Baysian 
-summary(morph_lm_bay, digits = 4) #so far so good
+summary(morph_bay_mod, digits= 4)  #so far so good
 ```
 
-We would interpret Bayesian that it is very likely that Tarsus length affects culmen size. 
-We would interpret the least squares as it was very plausible that we can reject the null and we find that it is plausible that the variation is due to correlation and not noise.   
-###5.3 Everyday I’m Profilin’ (10 points)For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
+All three generate a relationship where tarsus predicts culmen length. But they take very different approaches. In least squares, we use test statistics from Frequentist theory where we could confidently reject the null (the probably there was no relationship). 
+Likelihood approaches this questsion by looking at the probabiliy of getting our data for all parameters (in a given range). This approach evauluates multiple hypothesis not just comparing ours to a null like above. Like least squares it still looks at the probability fo the data given the hypothesis.  
+With a Bayesian approach we can flip the relationship and examine the probability of our hypothesis given the data. It incorporates prior knowledge of the relationship into the model and allows us to assert a degree of belief in the probability of a hypothesis being true.  
 
+###5.3 Everyday I’m Profilin’ (10 points)For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
+```{r}
+#morph_glm <- glm(Culmen..mm.~Tarsus..mm.,
+ #                family= gaussian(link="identity"),
+  #               data= morph)
+
+
+```
 
 
 ###5.4 The Power of the Prior (10 points)
