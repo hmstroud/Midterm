@@ -171,24 +171,25 @@ General trend is the same but distribution makes power much more jagged...
 ## 4. I’ve referenced the following figure a few times. I’d like you to demonstrate your understanding of Bayes Theorem by hand showing what the probability of the sun exploding is given the data. Assume that your prior probability that the sun explodes is p(Sun Explodes) = 0.0001. The rest of the information you need is in the cartoon!
 
 ```{r Bayesian Theory}
-P_E <- 0.0001  #data points
+P_E <- 0.0001  
 P_N <- 1- P_E #probabilit it doesn't explode
-P_F <- 1/36    #probabiliy it lies, also prob the it lies given sun explodes
-P_T <- 1-P_F  #probabiliy it tells the truth, prob it tells truth given sun explodes
+P_Y_E <- 35/36    #prob it says the sun explodes given that it did explode
+P_Y_NE <- 1/36  #prob it says yes given the sun doesn explode (ie the prob of it lying)
 
-#Prob of explostion give true= P(T | E)* (P(E))/ P(T)
-#Prob of it being true P(T)= P(T|E) P(E) + P(T|N) * P(N)
+#Prob of explostion give true= P(Y|E)* (P(E))/ P(Y)
+#Prob of it being true P(Y)= P(Y|E) P(E) + P(Y|N) * P(N)
 
 
+#our equation
+#P(Exp |Yes) <- P(yes|explodes)*p(Explodes)/Prob(Yes)
+#Prob(Y)= P(Says Ex | explodes)*P(E) + P(Says ex|doesnt)* P(N)
 
-#P(sun explodes | yes) <- P(yes|explodes)*p(Explodes)/Prob(Yes)
-#Prob(Yes)= P(Says Ex | explodes)*P(E) + P(Says ex|doesnt)* P(N)
+P_Y <- P_Y_E*P_E + P_Y_NE*P_N
 
-P_yes <- P_T*P_E+P_F*P_N
-
-P_exp_given_data <- (P_T*P_E)/P_yes
+P_exp_given_data <- (P_Y_E* P_E)/P_Y
 P_exp_given_data
 ```
+We want to know the probability of the sun exploding given the machine says yes P(E| Y)
 The probability the sun explodes given the data is 0.0035.  
 
 ##5 Quailing at the Prospect of Linear Models
@@ -198,7 +199,7 @@ I’d like us to walk through the three different ‘engines’ that we have lea
 library(readr)
 library(profileModel)
 morph <- read.csv("./Data/Morphology data.csv")
-morph <- morph[-c(2:5, 8:10)] %>% na.omit()    #getting rid of NAs
+morph <- morph %>% na.omit()    #getting rid of NAs
 #visualize data 
 ggplot(data= morph, aes(x=Tarsus..mm., y=Culmen..mm.))+ geom_point()+
   stat_smooth(method= "lm")
@@ -287,7 +288,7 @@ Likelihood approaches this questsion by looking at the probabiliy of getting our
 With a Bayesian approach we can flip the relationship and examine the probability of our hypothesis given the data. It incorporates prior knowledge of the relationship into the model and allows us to assert a degree of belief in the probability of a hypothesis being true.  
 
 ###5.3 Everyday I’m Profilin’ (10 points)For your likelihood fit, are your profiles well behaved? For just the slope, use grid sampling to create a profile. You’ll need to write functions for this, and use the results from your glm() fit to provide the reasonable bounds of what you should be profiling over (3SE should do). Is it well behaved? Plot the profile and give the 80% and 95% CI. Verify your results with profileModel.
-```{r Slope Profile}
+```{r}
 #grid sampling 
 lik_fun <- function(slope, intercept, resid_sd){
   #data generating process
@@ -297,35 +298,38 @@ lik_fun <- function(slope, intercept, resid_sd){
   sum(dnorm(morph$Culmen..mm., cul_fit, resid_sd, log=TRUE))
 }
 
-gs_loglik <- crossing(intercept = -0.09871,
-                      slope = seq(0.28,0.48,.001),
-                      resid_sd = 1.238) %>%
+gs_loglik <- crossing(intercept = seq(-0.75, 0.55, .05),
+                      slope = seq(0.28,0.48,.01),
+                       resid_sd = seq(.5, 1.5, .01)) %>%
   rowwise() %>%
   mutate(logLik = lik_fun(slope, intercept, resid_sd)) %>%
   ungroup()
-#filter for max loglik, look at slope
-slope_prof <- gs_loglik %>%
-  group_by(slope) %>%
-  filter(logLik == max(logLik)) %>%
-  ungroup()
+#filter for max loglik
+slope_prof <-gs_loglik %>% group_by(slope) %>%
+  filter(logLik == max(logLik)) 
 
-slope_prof_plot <- ggplot(data = slope_prof) +
-  geom_line(aes(x=slope, y=logLik))+
-  ylab("Log Likelihood") + xlab("Slope") 
-slope_prof_plot
+prof_plot <- ggplot(data = slope_prof, aes(x= slope, y=logLik))  + geom_line() +  xlim(0.35,0.39)+ ylim(-1260,-1240) #zoomed in after viewing 
+prof_plot  
 
-#95 CI, CI= 1.92*SE 
-#gs_loglik %>% filter(logLik > max(logLik) - 1.96) %>% filter(row_number()==1 | #row_number()==n())
+#95 CI
+gs_loglik %>%
+filter(logLik > max(logLik) - 1.96) %>% 
+  arrange(slope) %>%
+  filter(row_number()==1 | row_number()==n())
 
 #80 CI
+gs_loglik %>% filter(logLik > max(logLik) - 2*1.642) %>% arrange(slope) %>%
+  filter(row_number()==1 | row_number()==n())
+
+prof_plot + geom_hline(yintercept = -1251, color="red")+ geom_hline(yintercept= -1253, color= "purple")
+
 
 #compare to profileModel
 prof_glm <- profileModel(morph_glm, 
                          objective="ordinaryDeviance",
-                         quantile= qchisq(0.8, 0.95))
+                         quantile= qchisq(0.80,0.95))
 plot(prof_glm)  
 ```
-
 
 
 ###5.4 The Power of the Prior (10 points)
@@ -384,3 +388,24 @@ Diehl_wg <-weighted.mean(x=ma_senate$Diehl, y=ma_senate$Size)
 ```
 Based on polling data, I predict Warren will win with a populat vote of 55.5 percent.  
 
+```{r, Florida Governors Race}
+#attempts at a prior based on partisianship
+#read in polling data (same polls as used by 538 model)
+Fl_gov <- read_csv("./data/florida_gov.csv")
+Gillum <- weighted.mean(x=Fl_gov$Gillum, y=Fl_gov$Polled)
+DeSantis <- weighted.mean(x=Fl_gov$DeSantis, y=Fl_gov$Polled)
+#538 General rule of thumb is partisanship (as defined by presidential elections) voting is 1/3 as strong in governors races as federal 
+#FL 2016 
+Fl_pres_16 <- 0.49 
+Fl_turnout_14<- 0.51 #last midterm election 
+#Voter reg in Fl (most recent data) Fl state department
+
+Fl_reg<- 13200872
+Fl_rep <- 4661230/Fl_reg  #GOP  
+Fl_dem <- 4918415/Fl_reg   #Dems
+Fl_min <- 99322/Fl_reg    #minority parties 
+Fl_ind <- 3521905/Fl_reg  #no affliation
+
+Fl_partisianship_gov <- 0.33333* 0.49
+
+```
