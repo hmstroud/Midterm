@@ -140,8 +140,8 @@ sim_log<- data.frame(intercept = 115.767,
   #replicate for simulations 
   crossing(sim= 1:100) %>% 
   mutate(age.days= rlnorm(n(),log(3730.246),log(1293.485 )))%>%
-    mutate(length.cm= rnorm(n(), 115.767 + 0.00237* age.days,
-                                    5.6805))%>%
+    mutate(length.cm=  115.767 + 0.00237* age.days,
+                                5.6805) %>%
   ungroup()
 
 #fit
@@ -231,7 +231,8 @@ m_res <- residuals(morph_glm)
 plot(morph_glm, which=1)
 plot(morph_glm, which=2)
 
-qqnorm(m_res)+ qqline(m_res)   #goodenough
+qqnorm(m_res)
+qqline(m_res)   #goodenough
 plot(profile(morph_glm, objective= "ordinaryDeviance")) 
 
 #f-tests of model
@@ -308,7 +309,7 @@ gs_loglik <- crossing(intercept = seq(-0.75, 0.55, .05),
 slope_prof <-gs_loglik %>% group_by(slope) %>%
   filter(logLik == max(logLik)) 
 
-prof_plot <- ggplot(data = slope_prof, aes(x= slope, y=logLik))  + geom_line() +  xlim(0.35,0.39)+ ylim(-1260,-1240) #zoomed in after viewing 
+prof_plot <- ggplot(data = slope_prof, aes(x= slope, y=logLik))  + geom_line() +  xlim(0.35,0.39)+ ylim(-1260,-1248) #zoomed in after viewing 
 prof_plot  
 
 #95 CI
@@ -318,13 +319,13 @@ filter(logLik > max(logLik) - 1.96) %>%
   filter(row_number()==1 | row_number()==n())
 
 #80 CI
-gs_loglik %>% filter(logLik > max(logLik) - 2*1.642) %>% arrange(slope) %>%
+gs_loglik %>% filter(logLik > max(logLik) - 1.642/2) %>% arrange(slope) %>%
   filter(row_number()==1 | row_number()==n())
 
-prof_plot + geom_hline(yintercept = -1251, color="red")+ geom_hline(yintercept= -1253, color= "purple")
+prof_plot + geom_hline(yintercept = -1251.6, color="red")+ geom_hline(yintercept= -1250.4, color= "purple")
 
 
-#compare to profileModel
+#compare to profileModel/ sanity check
 prof_glm <- profileModel(morph_glm, 
                          objective="ordinaryDeviance",
                          quantile= qchisq(0.80,0.95))
@@ -343,18 +344,12 @@ pr_m <- stan_glm(Culmen..mm. ~ Tarsus..mm.,
                                 family=gaussian(),
                                 prior = normal(0.4,0.01))
 #test assumptions 
-pr_morph_posterior <- posterior_samples(prior_morph, 
-                                    add_chain = T)
+posterior_interval(pr_m)
 rhat(pr_m)  #close to 1
 mcmc_acf(pr_morph_posterior) #converge quickly
-p_morph_fit <- fitted(pr_m) %>% as.data.frame() 
-p_morph_res <- residuals(pr_m) %>% as.data.frame()
 
-qqnorm(p_morph_res$Estimate) + qqline(p_morph_res$Estimate)
-pp_check(pr_m, type= "scatter")
-pp_check(pr_m, type = "dens") #this looks a little weird 
-pp_check(pr_m)
-summary(pr_m, digits= 4)
+
+summary(pr_m, digits= 4) #0.4 is not in our CI
 #intercept is off but slope and residual sd are similar. 
 ```
 
@@ -362,8 +357,8 @@ summary(pr_m, digits= 4)
 ```{r small sample size}
 #set  up small sample size df
 
-sm_data <- data.frame(Tarsus=morph$Tarsus..mm.[15:24],
-                      Culmen= morph$Culmen..mm. [15:24])
+sm_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:10],
+                      Culmen= morph$Culmen..mm. [1:10])
 
 
 sm_morph_pr <- stan_glm(Culmen~ Tarsus,
@@ -371,13 +366,58 @@ sm_morph_pr <- stan_glm(Culmen~ Tarsus,
                           family=gaussian(),
                           prior = normal(0.4,0.01))
 summary(sm_morph_pr, digits= 4)
-
+posterior_interval(sm_morph_pr)
 ```
 The strong prior influences the small sample size.   
 
 ####Last, demonstrate at what sample size that 95% CL first begins to include 0.4 when we have a strong prior. How much data do we really need to overcome our prior belief? Note, it takes a long time to fit these models, so, try a strategy of spacing out the 3-4 sample sizes, and then zoom in on an interesting region.
 ```{r}
+# vary the sample sizes 
+g1_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:50],
+                      Culmen= morph$Culmen..mm. [1:50])
+
+
+g1_morph_pr <- stan_glm(Culmen~ Tarsus,
+                      data = g1_data,
+                          family=gaussian(),
+                          prior = normal(0.4,0.01))
+posterior_interval(g1_morph_pr)  
+
+
+g2_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:250],
+                      Culmen= morph$Culmen..mm. [1:250])
+g2_morph_pr <- stan_glm(Culmen~ Tarsus,
+                      data = g2_data,
+                          family=gaussian(),
+                          prior = normal(0.4,0.01))
+posterior_interval(g2_morph_pr)  
+
+
+g3_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:150],
+                      Culmen= morph$Culmen..mm. [1:150])
+g3_morph_pr <- stan_glm(Culmen~ Tarsus,
+                      data = g3_data,
+                          family=gaussian(),
+                          prior = normal(0.4,0.01))
+posterior_interval(g3_morph_pr)  
+
+g4_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:200],
+                      Culmen= morph$Culmen..mm. [1:200])
+g4_morph_pr <- stan_glm(Culmen~ Tarsus,
+                      data = g4_data,
+                          family=gaussian(),
+                          prior = normal(0.4,0.01))
+posterior_interval(g4_morph_pr) 
+
+g5_data <- data.frame(Tarsus=morph$Tarsus..mm.[1:225],
+                      Culmen= morph$Culmen..mm. [1:225])
+g5_morph_pr <- stan_glm(Culmen~ Tarsus,
+                      data = g5_data,
+                          family=gaussian(),
+                          prior = normal(0.4,0.01))
+posterior_interval(g5_morph_pr)  
 ```
+Somewhere around 225-250 data points the strong prior is overridden.  
 
 ###6. Extra CreditMake an election forecast as discussed at https://biol607.github.io/extra.html - but this isn’t just a winner prediction. 1 point for the correct winner. 5 points for correctly predicting the popular vote and being within 10% (3% just for trying!). 5 points for predicting the electoral college and geting no more than 5 states wrong (3 points just for trying). 5 points for predicting the senate races getting no more than 5 states wrong (3 points just for trying). 1 extra point for each vote percentage within your 80% Confidence/Credible Interval. Ditto for the house races.
 
