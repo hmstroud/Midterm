@@ -448,8 +448,9 @@ Fl_dem <- 4918415/Fl_reg   #Dems
 Fl_min <- 99322/Fl_reg    #minority parties 
 Fl_ind <- 3521905/Fl_reg  #no affliation
 
-Fl_partisianship_gov <- 0.33333* 0.49
-sum(Fl_gov$Polled)
+#Fl_partisianship_gov <- 0.33333* 0.49
+#sum(Fl_gov$Polled)
 
 
 ```
+Gillum will win with 49% of the vote.  
