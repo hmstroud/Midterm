@@ -134,16 +134,16 @@ Change in intercept did not have a significant effect on power, increasing resid
 sim_log<- data.frame(intercept = 115.767,
                       slope= 0.00237, residual_sd = 5.6805) %>%
  crossing(sample_size = 5:10) %>%  
-  group_by(sample_size) %>%
-  expand(reps= 1:sample_size) %>%
-  ungroup() %>%
-  #replicate for simulations 
-  crossing(sim= 1:100) %>% 
-  mutate(age.days= rlnorm(n(),log(3730.246),log(1293.485 )))%>%
-    mutate(length.cm=  115.767 + 0.00237* age.days,
-                                5.6805) %>%
-  ungroup()
-
+group_by(intercept, slope, residual_sd, sample_size) %>%
+    expand(reps= 1:sample_size) %>%
+    ungroup() %>%
+    #replicate for simulations 
+    crossing(sim= 1:100) %>% 
+    mutate(age.days= rlnorm(n(), log(3730.246), log(1293.485))) %>% 
+    mutate(length.cm = rnorm(n(), intercept + slope* age.days,
+                             residual_sd)) %>%
+    ungroup()
+ 
 #fit
 log_fit <- sim_log %>% 
     group_by(sim, sample_size) %>%
@@ -167,7 +167,7 @@ log_dis_plot <- ggplot(data = pow_age_distrib,
 log_dis_plot
 samp_siz_plot
 ```
-General trend is the same but distribution makes power much more jagged...  
+Power is higher with a log distribution.    
 ## 4. I’ve referenced the following figure a few times. I’d like you to demonstrate your understanding of Bayes Theorem by hand showing what the probability of the sun exploding is given the data. Assume that your prior probability that the sun explodes is p(Sun Explodes) = 0.0001. The rest of the information you need is in the cartoon!
 
 ```{r Bayesian Theory}
@@ -336,18 +336,16 @@ plot(prof_glm)
 ###5.4 The Power of the Prior (10 points)
 ####This data set is pretty big. After excluding NAs in the variables we’re interested in, it’s over 766 lines of data! Now, a lot of data can overhwelm a strong prior. But only to a point. Show first that there is enough data here that a prior for the slope with an estimate of 0.4 and a sd of 0.01 is overwhelmed by the data by demonstrating that it produces similar results to our already fit flat prior.
 ```{r  warning=FALSE, message=FALSE}
-
-#I have no idea if I set the prior right
-######alternvative way to set prior- rstanarm, signif faster 
+# set prior- rstanarm, signif faster 
 pr_m <- stan_glm(Culmen..mm. ~ Tarsus..mm.,
                                 data = morph,
                                 family=gaussian(),
                                 prior = normal(0.4,0.01))
 #test assumptions 
-posterior_interval(pr_m)
+prm_post <- posterior_samples(pr_m, add_chain= T)
+mcmc_acf(prm_post)
 rhat(pr_m)  #close to 1
-mcmc_acf(pr_morph_posterior) #converge quickly
-
+pp_check(pr_m) #converge quickly
 
 summary(pr_m, digits= 4) #0.4 is not in our CI
 #intercept is off but slope and residual sd are similar. 
@@ -425,6 +423,11 @@ Somewhere around 225-250 data points the strong prior is overridden.
 ma_senate <- read_csv("./data/ma_senate_sum_polls.csv")
 Warren_wgt <- weighted.mean(x= ma_senate$Warren, y=ma_senate$Size)
 Diehl_wg <-weighted.mean(x=ma_senate$Diehl, y=ma_senate$Size)
+
+#congressional re-election rate over all: 90%
+sim <-matrix(rbinom(1,500, 0.55 ), nrow=100)
+
+
 ```
 Based on polling data, I predict Warren will win with a populat vote of 55.5 percent.  
 
@@ -436,9 +439,8 @@ Gillum <- weighted.mean(x=Fl_gov$Gillum, y=Fl_gov$Polled)
 DeSantis <- weighted.mean(x=Fl_gov$DeSantis, y=Fl_gov$Polled)
 #538 General rule of thumb is partisanship (as defined by presidential elections) voting is 1/3 as strong in governors races as federal 
 #FL 2016 
-Fl_pres_16 <- 0.49 
-Fl_turnout_14<- 0.51 #last midterm election 
-#Voter reg in Fl (most recent data) Fl state department
+Fl_pres_16 <- 0.49 #voted for republican 
+
 
 Fl_reg<- 13200872
 Fl_rep <- 4661230/Fl_reg  #GOP  
@@ -447,5 +449,7 @@ Fl_min <- 99322/Fl_reg    #minority parties
 Fl_ind <- 3521905/Fl_reg  #no affliation
 
 Fl_partisianship_gov <- 0.33333* 0.49
+sum(Fl_gov$Polled)
+
 
 ```
