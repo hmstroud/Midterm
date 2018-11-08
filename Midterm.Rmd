@@ -299,8 +299,8 @@ lik_fun <- function(slope, intercept, resid_sd){
   sum(dnorm(morph$Culmen..mm., cul_fit, resid_sd, log=TRUE))
 }
 
-gs_loglik <- crossing(intercept = seq(-0.75, 0.55, .05),
-                      slope = seq(0.28,0.48,.01),
+gs_loglik <- crossing(intercept = -0.098707,
+                      slope = seq(0.28,0.48,.001),
                        resid_sd = seq(.5, 1.5, .01)) %>%
   rowwise() %>%
   mutate(logLik = lik_fun(slope, intercept, resid_sd)) %>%
@@ -309,29 +309,36 @@ gs_loglik <- crossing(intercept = seq(-0.75, 0.55, .05),
 slope_prof <-gs_loglik %>% group_by(slope) %>%
   filter(logLik == max(logLik)) 
 
-prof_plot <- ggplot(data = slope_prof, aes(x= slope, y=logLik))  + geom_line() +  xlim(0.35,0.39)+ ylim(-1260,-1248) #zoomed in after viewing 
+prof_plot <- ggplot(data = slope_prof, aes(x= slope, y=logLik))  + geom_line() +  xlim(0.36,0.385)+ ylim(-1260,-1248) #zoomed in after viewing 
 prof_plot  
 
 #95 CI
-gs_loglik %>%
+CI_95 <- gs_loglik %>%
 filter(logLik > max(logLik) - 1.96) %>% 
   arrange(slope) %>%
-  filter(row_number()==1 | row_number()==n())
+  filter(row_number()==1 | row_number()==n())%>%
+  as.data.frame()
 
 #80 CI
-gs_loglik %>% filter(logLik > max(logLik) - 1.642/2) %>% arrange(slope) %>%
-  filter(row_number()==1 | row_number()==n())
+CI_80 <- gs_loglik %>% filter(logLik > max(logLik) - 1.642/2) %>% 
+  arrange(slope) %>%
+  filter(row_number()==1 | row_number()==n())%>% 
+  as.data.frame()
 
-prof_plot + geom_hline(yintercept = -1251.6, color="red")+ geom_hline(yintercept= -1250.4, color= "purple")
-
+prof_plot + geom_vline(xintercept =0.372 , color="red")+ geom_vline(xintercept = 0.374, color= "red")+
+  geom_vline(xintercept= 0.371, color= "purple")+ geom_vline(xintercept = 0.375, color= "purple")
 
 #compare to profileModel/ sanity check
-prof_glm <- profileModel(morph_glm, 
+prof_glm_95 <- profileModel(morph_glm, 
                          objective="ordinaryDeviance",
-                         quantile= qchisq(0.80,0.95))
-plot(prof_glm)  
+                         quantile= qchisq(0.95, 1))
+prof_glm_80 <- profileModel(morph_glm, 
+                         objective="ordinaryDeviance",
+                         quantile= qchisq(0.80, 1))
+plot(prof_glm_95)  
+plot(prof_glm_80)
 ```
-
+Red is 80% CI. Purple is 95% CI.  
 
 ###5.4 The Power of the Prior (10 points)
 ####This data set is pretty big. After excluding NAs in the variables we’re interested in, it’s over 766 lines of data! Now, a lot of data can overhwelm a strong prior. But only to a point. Show first that there is enough data here that a prior for the slope with an estimate of 0.4 and a sd of 0.01 is overwhelmed by the data by demonstrating that it produces similar results to our already fit flat prior.
