@@ -431,8 +431,9 @@ ma_senate <- read_csv("./data/ma_senate_sum_polls.csv")
 Warren_wgt <- weighted.mean(x= ma_senate$Warren, y=ma_senate$Size)
 Diehl_wg <-weighted.mean(x=ma_senate$Diehl, y=ma_senate$Size)
 
-#congressional re-election rate over all: 90%
-sim <-matrix(rbinom(1,500, 0.55 ), nrow=100)
+#Binom distribution- prob of Warren winning vs not winning 
+#sim <-rep(rbinom(1,500, 0.55 ), nrow=100)
+
 
 
 ```
